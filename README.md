@@ -35,10 +35,38 @@ icons <- awesomeIcons(
     palette = c("red","yellow","blue"),
     domain = poa$maxcov)
 ```
+A related project that is under development is the ground versus air transport in the state of Victoria. The map contains location of air transport and hospitals. It is available at https://gntem3.shinyapps.io/heliecr/
+
+```R
+#create helicopter icon
+#save picture of helicopter in directory
+HIcon<-iconList(
+  HeliIcon<-makeIcon("heli.png",
+                     iconWidth = 26,iconHeight = 26),
+  RMHfront<-makeIcon("rmhfront.png",
+                     iconWidth = 26,iconHeight = 26),
+  MMCfront<-makeIcon("mmcfront.png",
+                   iconWidth = 26,iconHeight = 26)
+)
+  
+```
+
+```R
+#location of air transport using ggmap 
+#can also be done without key with geocode_OS from tmaptools
+#geocode("essendon fields airport, victoria")
+#144.9015 -37.72641
+#geocode("warnambool airport, victoria")
+#142.4497 -38.29997
+#geocode("bendigo airport, victoria")
+#144.3264 -36.73832
+#geocode("latrobe valley airport, victoria")
+#146.4711 -38.20847
+```
 
 This next section describes how I make changes within Rstudio and commits the changes to github. There's more work here than direct uploading in github. This step was done to avoid issues with differences in line errors.
 
-```git
+```git 
 #create a project in Rstudio
 #after modifying files type on Git Bash
  git add README.md
