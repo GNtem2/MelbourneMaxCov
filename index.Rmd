@@ -1,0 +1,299 @@
+---
+title: "index"
+author: "gntem2"
+date: "12 August 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r library}
+rm(list=ls())
+
+library(DT)
+library(leaflet)
+library(ggmap)
+library(stringr)
+library(dplyr)
+#
+library(sp)
+library(deldir)
+library(ggplot2)
+library(readxl)
+library(sf)
+library(ggvoronoi)
+
+#MSU base in Sydney
+#base on suburbs less well covered
+#change file to Melbourne
+
+#open data
+
+XA=read.csv("Amb_geocoded_time.csv",header=TRUE,sep=",") 
+XB=read.csv("Amb_toTPA_geocoded2.csv",header=TRUE,sep=",") 
+#remove row without values
+X1=inner_join(XB, XA, by="Suburb")
+
+#X1=read.csv("msu_sydney_geocoded_maxcov.csv")
+
+#ABS
+X2=read.csv("2016Census_G01_VIC_POA.csv") #621 109
+
+
+
+TPA<-read.csv("tpa.csv")
+
+#trim data
+#X1=filter(X1,minutestoRPA<200)
+
+#########################
+#clean X1
+#remove words before number & after number
+X1$POA<-str_remove(X1$formatted_address, "([[:alpha:][:blank:]]+)") %>%
+  str_remove(",") %>%
+  str_remove("[[:alpha:][:blank:]]+")
+
+#clean X2
+#remove POA
+X2$POA<-str_remove(X2$POA_CODE_2016, "([[:alpha:]]+)")
+
+#trim X2
+X2<-X2[,c(110,7,10,13,16,19,22,25,28,31,34,37)]
+
+
+##
+BHHcatc<-c("camberwell","knox","maningham","ringwood","nunawading","croydon","hawthorn","box hill","yarra ranges","lilydale","seville","kew","cardinia","waverley","murrindi","nilumbik")
+##
+
+#epidemiological data
+#nemesis 206 per 100000
+#leyden 161 per 100000
+X3<-data.matrix(X2)
+X4<-data.matrix(X2)
+
+nemesis<-matrix(c(0,0,5,5,30,44,111,299,747,1928,3976)/100000)
+adelaide<-matrix(c(0,0,0,0,33,39,103,198,346,1012,2251)/100000)
+
+#for a matrix 1 indicates rows, 2 indicates columns
+X3<-apply(X3[,-c(1)], 1, function(x) x*nemesis)
+X4<-apply(X4[,-c(1)], 1, function(x) x*adelaide)
+
+#convert list from data frame
+X3<-data.frame(t(X3))
+X4<-data.frame(t(X4))
+
+#round
+X3<-round(X3,1)
+X4<-round(X4,1)
+
+#sum stroke per postcode
+X2$strokenemesis<-rowSums(X3)
+X2$strokeadelaide<-rowSums(X4)
+
+#merge files
+X3<-merge(X1, X2, by="POA")
+
+#remove duplicates row 2-10
+X3<-X3[-c(2:10),]
+
+
+```
+
+```{r maxcov}
+#proximity
+
+#ECR x5
+X3$mcRMH[X3$minutestoRMH<=30]<-1
+X3$mcRMH[X3$minutestoRMH>30]<-0
+
+X3$mcMMC[X3$minutestoMMC<=30]<-1
+X3$mcMMC[X3$minutestoMMC>30]<-0
+
+X3$mcAlfred[X3$minutestoAlfred<=30]<-1
+X3$mcAlfred[X3$minutestoAlfred>30]<-0
+
+X3$mcAus[X3$minutestoAus<=30]<-1
+X3$mcAus[X3$minutestoAus>30]<-1
+
+X3$mcSVH[X3$minutestoSVH<=30]<-1
+X3$mcSVH[X3$minutestoSVH>30]<-0
+
+###########
+#TPA x 5
+X3$mcBHH[X3$minutestoBHH<=30]<-1
+X3$mcBHH[X3$minutestoBHH>30]<-0
+
+X3$mcgeelong[X3$minutestogeelong<=30]<-1
+X3$mcgeelong[X3$minutestogeelong>30]<-0
+
+X3$mcFrankston[X3$minutestoFrankston<=30]<-1
+X3$mcFrankston[X3$minutestoFrankston>30]<-0
+
+X3$mcnorthern[X3$minutestonorthern<=30]<-1
+X3$mcnorthern[X3$minutestonorthern>30]<-0
+
+#SH=sunshine
+X3$mcSH[X3$minutestoSH<=30]<-1
+X3$mcSH[X3$minutestoSH>30]<-0
+
+
+#create overlap ecr+tpa=10
+X3$maxcov<-X3$mcRMH+X3$mcMMC+X3$mcAlfred+X3$mcSVH+  X3$mcAus+X3$mcBHH+X3$mcgeelong+X3$mcFrankston+X3$mcnorthern+
+  X3$mcSH
+
+#create overlap ecr only 5
+X3$maxcovecr<-X3$mcRMH+X3$mcMMC+X3$mcAlfred+X3$mcSVH+
+  X3$mcAus
+
+#create overlap designated 2
+
+X3$maxcovdes<-X3$mcRMH+X3$mcMMC
+
+
+##
+#convert character to number
+TPA$lat<-as.numeric(TPA$lat)
+TPA$long<-as.numeric(TPA$long)
+
+#filter only hospital  providing tpa
+#TPA<-filter(TPA,tpa==1 & sydney==1)
+TPA<-filter(TPA,tpa==1)
+
+```
+
+
+
+
+
+```{r plot}
+X3$timetoRMH=as.factor(X3$minutestoRMH)
+X3$strokeper100000<-X3$strokenemesis
+gg<-ggplot(X3,aes(x=as.numeric(POA),y=maxcov,color=timetoRMH))+guides(fill="minutes to RMH")+
+  geom_point(aes(size=strokeper100000))+
+  #geom_point(aes(colorNumeric(minutestoRNS.1.y)))%>%
+  labs(x="Postcode",y="Number of hospitals within 30 minutes",title="Relationship between postcode and hospital coverage")
+gg
+
+X3$maxcovhigh[X3$maxcov>=2]<-2
+X3$maxcovhigh[X3$maxcov<2]<-1
+X3$maxcovhigh<-as.factor(X3$maxcovhigh)
+
+hg<-ggplot(X3,aes(maxcov,fill=maxcovhigh))+geom_bar()+labs(x="Suburbs within 30 minutes of TPA",y="Suburbs",title="TPA Hospital Coverage")+guides(FALSE)
+hg
+
+hist='TPA and ECR'
+ggsave(paste0(hist, ".png"),  width = 24, height = 20, units = "in", dpi = 300)
+
+X3$maxcovecrhigh[X3$maxcovecr>=2]<-2
+X3$maxcovecrhigh[X3$maxcovecr<2]<-1
+X3$maxcovecrhigh<-as.factor(X3$maxcovecrhigh)
+
+hgecr<-ggplot(X3,aes(maxcovecr,fill=maxcovecrhigh))+geom_bar()+labs(x="Suburbs within 30 minutes of ECR",y="Suburbs",title="ECR Hospital Coverage")+guides(FALSE)
+hgecr
+
+hist='ECR'
+ggsave(paste0(hist, ".png"),  width = 24, height = 20, units = "in", dpi = 300)
+
+```
+####https://datacarpentry.org/r-raster-vector-geospatial/06-vector-open-shapefile-in-r/
+##https://stackoverflow.com/questions/50979999/delimit-voronoi-diagram-with-map-boundary-in-r
+
+
+```{r gg}
+###
+
+library(sf)
+library(ggvoronoi)
+gccsa<-st_read("GCCSA_2016_AUST.shp") #map of Australia
+
+
+#subset greater melbourne
+gccsa_f<-filter(gccsa,GCC_CODE16=="2GMEL")
+
+
+poa<-st_read("POA_2016_AUST.shp") #map of Australia
+poa$POA<-str_remove(poa$POA_CODE, "([[:alpha:]]+)")
+poa<-right_join(poa,X3,by="POA")
+
+
+library(KernSmooth)
+X=cbind(TPA$long,TPA$lat)
+st_bbox(poa)
+
+#icon
+kde2d <- bkde2D(X, bandwidth=c(bw.ucv(X[,1]),bw.ucv(X[,2])))
+x=kde2d$x1
+y=kde2d$x2
+z=kde2d$fhat
+CL=contourLines(x , y , z)
+
+#icon markers
+getColor <- function(tpa) {
+ sapply(TPA$ECR, function(ECR) {
+  if(ECR == 1 ) {
+   "red"
+  } else {
+   "blue"
+  } })
+}
+
+
+
+icons <- awesomeIcons(
+  #icon = 'ios-close',
+  icon= 'medkit',
+  iconColor = 'black',
+  library = 'ion',
+  markerColor = getColor(TPA)
+)
+
+#color by maxcov
+    pal <- colorNumeric(
+    palette = c("red","yellow","blue"),
+    domain = poa$maxcov)
+
+#heatmap by hospitals
+m<-leaflet(data=TPA) %>%
+  setView(145.1234,-37.92067,10)     %>% 
+  addTiles() %>%
+  addAwesomeMarkers(lng=TPA$long,lat=TPA$lat, icon=icons, label=~as.character(TPA$hospital)) %>%
+  #addMarkers(popup = as.character(TPA$hospital)) %>%
+  addPolygons(data=poa,weight=.8,fillOpacity = .5,fillColor = ~pal(X3$maxcov),popup = paste("Suburb=",poa$formatted_address,"strokeper100000=",poa$strokenemesis))%>%
+    
+  #addPolygons(CL[[5]]$x,CL[[5]]$y,fillColor = "red", stroke = FALSE) %>%
+  addLegend(pal=pal,values=X3$maxcov,title = "Hospital Overlap")
+m
+
+htmlwidgets::saveWidget(m,file="MelbourneTPA.html")
+webshot::webshot("MelbourneTPA.html",file="MelbourneTPA.png")
+
+#color by maxcov
+    pal <- colorNumeric(
+    palette = c("red","yellow","blue"),
+    domain = poa$maxcovecr)
+
+
+#ECR
+n<-leaflet(data=TPA) %>%
+  setView(145.1234,-37.92067,10)     %>% 
+  addTiles() %>%
+  addAwesomeMarkers(lng=TPA$long,lat=TPA$lat, icon=icons, label=~as.character(TPA$hospital)) %>%
+  #addMarkers(popup = as.character(TPA$hospital)) %>%
+  addPolygons(data=poa,weight=.8,fillOpacity = .5,fillColor = ~pal(X3$maxcovecr),popup = paste("Suburb=",poa$formatted_address,"strokeper100000=",poa$strokenemesis))%>%
+    
+  #addPolygons(CL[[5]]$x,CL[[5]]$y,fillColor = "red", stroke = FALSE) %>%
+  addLegend(pal=pal,values=X3$maxcovecr,title = "ECR Hospital Overlap")
+n
+htmlwidgets::saveWidget(n,file="MelbourneECR.html")
+webshot::webshot("MelbourneECR.html",file="MelbourneECR.png")
+
+```
+
