@@ -9,6 +9,14 @@ The picture is the same when both TPA and ECR hospitals are considered together 
 
 Removing the thrombolysis capable hospitals in Melbourne only reduced the number of suburbs with redundant (≥2 hospital) coverage by 15.6%.
 
+This next section describe how I make changes within Rstudio and commit the changes to github
+
 ```github
+#create a project in Rstudio
+#after modifying files type on Git Bash
+ git add README.md
+#Alternately click Staged under Git
+ git commit -m "changes for README.md"
+#Alternately click Commit and add a message "changes for README.md"
 git push -u origin master
 ```
